@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meu Estoque</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg: #f5f0e8;
+    --card: #ffffff;
+    --accent: #2d6a4f;
+    --accent2: #e76f51;
+    --text: #1a1a1a;
+    --muted: #888;
+    --border: #e0d8cc;
+    --tv: #1d3557;
+    --pai: #6d4c41;
+    --oficina: #37474f;
+    --pecas: #4a148c;
+    --vendido: #81c784;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 0 0 80px 0;
+  }
+
+  header {
+    background: var(--accent);
+    color: white;
+    padding: 20px 16px 16px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+  }
+
+  header h1 { font-family: 'DM Serif Display', serif; font-size: 1.6rem; }
+  header p { font-size: 0.8rem; opacity: 0.75; margin-top: 2px; }
+
+  .sync-bar {
+    background: #e8f5e9;
+    padding: 6px 16px;
+    font-size: 0.78rem;
+    color: #2e7d32;
+    text-align: center;
+    font-weight: 500;
+  }
+
+  .sync-bar.syncing { background: #fff8e1; color: #f57f17; }
+  .sync-bar.error { background: #ffebee; color: #c62828; }
+
+  .summary {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding: 16px;
+  }
+
+  .summary-card {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 14px;
+    border: 1px solid var(--border);
+  }
+
+  .summary-card .label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .summary-card .value { font-size: 1.4rem; font-weight: 600; color: var(--accent); margin-top: 2px; }
+  .summary-card .value.money { font-size: 1.1rem; }
+
+  .tabs {
+    display: flex;
+    gap: 8px;
+    padding: 0 16px 12px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+
+  .tab {
+    flex-shrink: 0;
+    padding: 8px 16px;
+    border-radius: 20px;
+    border: 1.5px solid var(--border);
+    background: var(--card);
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--text);
+  }
+
+  .tab.active { color: white; border-color: transparent; }
+  .tab[data-cat="todas"].active { background: var(--accent); }
+  .tab[data-cat="tv"].active { background: var(--tv); }
+  .tab[data-cat="pai"].active { background: var(--pai); }
+  .tab[data-cat="oficina"].active { background: var(--oficina); }
+  .tab[data-cat="pecas"].active { background: var(--pecas); }
+
+  .search-bar { padding: 0 16px 12px; }
+  .search-bar input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    background: var(--card);
+    outline: none;
+  }
+
+  .items { padding: 0 16px; display: flex; flex-direction: column; gap: 10px; }
+
+  .item-card {
+    background: var(--card);
+    border-radius: 14px;
+    padding: 14px;
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    transition: opacity 0.2s;
+  }
+
+  .item-card.vendido { opacity: 0.55; }
+
+  .cat-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+  .cat-dot.tv { background: var(--tv); }
+  .cat-dot.pai { background: var(--pai); }
+  .cat-dot.oficina { background: var(--oficina); }
+  .cat-dot.pecas { background: var(--pecas); }
+
+  .item-info { flex: 1; min-width: 0; }
+  .item-name { font-weight: 500; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item-meta { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+
+  .cat-label { font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; font-weight: 500; display: inline-block; margin-top: 3px; }
+  .cat-label.tv { background: #e3f0fa; color: var(--tv); }
+  .cat-label.pai { background: #efebe9; color: var(--pai); }
+  .cat-label.oficina { background: #eceff1; color: var(--oficina); }
+  .cat-label.pecas { background: #f3e5f5; color: var(--pecas); }
+
+  .plat-label { font-size: 0.68rem; padding: 2px 7px; border-radius: 8px; font-weight: 500; display: inline-block; margin-top: 2px; margin-left: 4px; }
+  .plat-label.ml { background: #fff3e0; color: #e65100; }
+  .plat-label.olx { background: #e8f5e9; color: #2e7d32; }
+  .plat-label.fb { background: #e3f2fd; color: #1565c0; }
+  .plat-label.outros { background: #f3e5f5; color: #6a1b9a; }
+
+  .item-price { font-weight: 600; font-size: 1rem; color: var(--accent); white-space: nowrap; }
+  .item-price.vendido-price { color: var(--vendido); text-decoration: line-through; font-size: 0.85rem; }
+
+  .item-actions { display: flex; gap: 6px; align-items: center; }
+
+  .btn-vender {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .btn-vender.desfazer { background: #e0e0e0; color: var(--text); }
+  .btn-del { background: #ffeaea; color: #c62828; border: none; border-radius: 8px; padding: 6px 8px; font-size: 0.78rem; cursor: pointer; }
+
+  .vendido-badge { font-size: 0.7rem; background: #e8f5e9; color: #2e7d32; padding: 2px 8px; border-radius: 10px; font-weight: 500; }
+
+  .add-btn {
+    position: fixed;
+    bottom: 24px;
+    right: 20px;
+    background: var(--accent2);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 56px;
+    height: 56px;
+    font-size: 1.6rem;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(231,111,81,0.4);
+    z-index: 200;
+  }
+
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 300;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--card);
+    border-radius: 20px 20px 0 0;
+    padding: 24px 20px 40px;
+    width: 100%;
+    max-width: 480px;
+    animation: slideup 0.3s ease;
+  }
+
+  @keyframes slideup { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+  .modal h2 { font-family: 'DM Serif Display', serif; font-size: 1.3rem; margin-bottom: 20px; }
+
+  .form-group { margin-bottom: 14px; }
+  .form-group label { display: block; font-size: 0.8rem; font-weight: 500; color: var(--muted); margin-bottom: 5px; text-transform: uppercase; }
+
+  .form-group input,
+  .form-group select {
+    width: 100%;
+    padding: 12px;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem;
+    background: var(--bg);
+    color: var(--text);
+    outline: none;
+  }
+
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .btn-salvar {
+    width: 100%;
+    padding: 14px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 8px;
+  }
+
+  .btn-cancelar { width: 100%; padding: 12px; background: transparent; color: var(--muted); border: none; font-size: 0.9rem; cursor: pointer; margin-top: 4px; }
+
+  .empty { text-align: center; padding: 40px 20px; color: var(--muted); }
+  .empty p { font-size: 0.9rem; margin-top: 8px; }
+
+  .loading { text-align: center; padding: 40px; color: var(--muted); font-size: 0.9rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📦 Meu Estoque</h1>
+  <p>Controle de itens para venda</p>
+</header>
+
+<div class="sync-bar" id="sync-bar">⟳ Conectando...</div>
+
+<div class="summary">
+  <div class="summary-card">
+    <div class="label">Total de itens</div>
+    <div class="value" id="total-itens">0</div>
+  </div>
+  <div class="summary-card">
+    <div class="label">Já vendidos</div>
+    <div class="value" id="total-vendidos">0</div>
+  </div>
+  <div class="summary-card">
+    <div class="label">Valor em estoque</div>
+    <div class="value money" id="valor-estoque">R$ 0</div>
+  </div>
+  <div class="summary-card">
+    <div class="label">Total vendido</div>
+    <div class="value money" id="valor-vendido">R$ 0</div>
+  </div>
+</div>
+
+<div class="search-bar">
+  <input type="text" id="busca" placeholder="🔍 Buscar item..." oninput="renderItems()">
+</div>
+
+<div class="tabs">
+  <button class="tab active" data-cat="todas" onclick="setTab('todas')">Todos</button>
+  <button class="tab" data-cat="tv" onclick="setTab('tv')">📺 Placas/TVs</button>
+  <button class="tab" data-cat="pai" onclick="setTab('pai')">👔 Itens do Pai</button>
+  <button class="tab" data-cat="oficina" onclick="setTab('oficina')">🔧 Oficina</button>
+  <button class="tab" data-cat="pecas" onclick="setTab('pecas')">⚙️ Peças/Filtros</button>
+</div>
+
+<div class="items" id="items-list"><div class="loading">Carregando...</div></div>
+
+<button class="add-btn" onclick="abrirModal()">+</button>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h2>Adicionar item</h2>
+    <div class="form-group">
+      <label>Nome do item</label>
+      <input type="text" id="f-nome" placeholder="Ex: Drone DJI Phantom 4 Pro">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Categoria</label>
+        <select id="f-cat">
+          <option value="tv">📺 Placas/TVs</option>
+          <option value="pai">👔 Itens do Pai</option>
+          <option value="oficina">🔧 Oficina</option>
+          <option value="pecas">⚙️ Peças/Filtros</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Preço (R$)</label>
+        <input type="number" id="f-preco" placeholder="0,00" step="0.01">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Plataforma</label>
+        <select id="f-plat">
+          <option value="ml">Mercado Livre</option>
+          <option value="olx">OLX</option>
+          <option value="fb">Facebook</option>
+          <option value="outros">Outros</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Quantidade</label>
+        <input type="number" id="f-qtd" placeholder="1" min="1" value="1">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Observação (opcional)</label>
+      <input type="text" id="f-obs" placeholder="Ex: testada, bom estado, com acessórios...">
+    </div>
+    <button class="btn-salvar" onclick="salvarItem()">Salvar item</button>
+    <button class="btn-cancelar" onclick="fecharModal()">Cancelar</button>
+  </div>
+</div>
+
+<script>
+  const API_KEY = '$2a$10$etwUtNI8ZcmNGhAP63.zZOAuWIYkqDZgGV7KJQjZMhSiCp126fwb6';
+  const BIN_NAME = 'estoque-anapaulamoraes';
+  let BIN_ID = localStorage.getItem('jsonbin_id') || null;
+  let itens = [];
+  let tabAtiva = 'todas';
+  let saving = false;
+
+  const syncBar = document.getElementById('sync-bar');
+
+  function setSyncStatus(status, msg) {
+    syncBar.className = 'sync-bar' + (status !== 'ok' ? ' ' + status : '');
+    syncBar.textContent = msg;
+  }
+
+  function formatMoney(v) {
+    return 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function catNome(cat) {
+    return { tv: 'Placas/TVs', pai: 'Itens do Pai', oficina: 'Oficina', pecas: 'Peças/Filtros' }[cat] || cat;
+  }
+
+  function platNome(p) {
+    return { ml: 'Mercado Livre', olx: 'OLX', fb: 'Facebook', outros: 'Outros' }[p] || p;
+  }
+
+  async function carregarDados() {
+    setSyncStatus('syncing', '⟳ Sincronizando...');
+    try {
+      if (!BIN_ID) {
+        // Criar novo bin
+        const res = await fetch('https://api.jsonbin.io/v3/b', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Master-Key': API_KEY,
+            'X-Bin-Name': BIN_NAME,
+            'X-Bin-Private': 'false'
+          },
+          body: JSON.stringify({ itens: [] })
+        });
+        const data = await res.json();
+        BIN_ID = data.metadata.id;
+        localStorage.setItem('jsonbin_id', BIN_ID);
+        itens = [];
+      } else {
+        const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
+          headers: { 'X-Master-Key': API_KEY }
+        });
+        const data = await res.json();
+        itens = data.record.itens || [];
+      }
+      setSyncStatus('ok', '✓ Sincronizado — qualquer dispositivo vê as mesmas informações');
+      renderItems();
+    } catch(e) {
+      setSyncStatus('error', '✗ Sem conexão — verifique a internet');
+      itens = [];
+      renderItems();
+    }
+  }
+
+  async function salvarNuvem() {
+    if (saving) return;
+    saving = true;
+    setSyncStatus('syncing', '⟳ Salvando...');
+    try {
+      await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Master-Key': API_KEY
+        },
+        body: JSON.stringify({ itens })
+      });
+      setSyncStatus('ok', '✓ Salvo na nuvem — ' + new Date().toLocaleTimeString('pt-BR'));
+    } catch(e) {
+      setSyncStatus('error', '✗ Erro ao salvar — verifique a internet');
+    }
+    saving = false;
+  }
+
+  function setTab(cat) {
+    tabAtiva = cat;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelector(`.tab[data-cat="${cat}"]`).classList.add('active');
+    renderItems();
+  }
+
+  function renderItems() {
+    const busca = document.getElementById('busca').value.toLowerCase();
+    let filtrados = itens.filter(i => {
+      const catOk = tabAtiva === 'todas' || i.cat === tabAtiva;
+      const buscaOk = !busca || i.nome.toLowerCase().includes(busca) || (i.obs||'').toLowerCase().includes(busca);
+      return catOk && buscaOk;
+    });
+
+    const container = document.getElementById('items-list');
+
+    if (filtrados.length === 0) {
+      container.innerHTML = `<div class="empty">📭<p>Nenhum item aqui ainda.<br>Toque no <strong>+</strong> para adicionar.</p></div>`;
+    } else {
+      container.innerHTML = filtrados.map(item => `
+        <div class="item-card ${item.vendido ? 'vendido' : ''}">
+          <div class="cat-dot ${item.cat}"></div>
+          <div class="item-info">
+            <div class="item-name">${item.nome}</div>
+            <div class="item-meta">
+              <span class="cat-label ${item.cat}">${catNome(item.cat)}</span>
+              <span class="plat-label ${item.plat||'ml'}">${platNome(item.plat||'ml')}</span>
+              ${item.qtd > 1 ? ` · ${item.qtd} unid.` : ''}
+              ${item.obs ? ` · ${item.obs}` : ''}
+            </div>
+            ${item.vendido ? '<span class="vendido-badge">✓ Vendido</span>' : ''}
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+            <div class="item-price ${item.vendido ? 'vendido-price' : ''}">${formatMoney(item.preco)}</div>
+            <div class="item-actions">
+              <button class="btn-vender ${item.vendido ? 'desfazer' : ''}" onclick="toggleVendido('${item.id}')">
+                ${item.vendido ? 'Desfazer' : 'Vendido'}
+              </button>
+              <button class="btn-del" onclick="deletar('${item.id}')">🗑</button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    atualizarResumo();
+  }
+
+  function atualizarResumo() {
+    const disponiveis = itens.filter(i => !i.vendido);
+    const vendidos = itens.filter(i => i.vendido);
+    document.getElementById('total-itens').textContent = itens.length;
+    document.getElementById('total-vendidos').textContent = vendidos.length;
+    document.getElementById('valor-estoque').textContent = formatMoney(disponiveis.reduce((s,i) => s + (i.preco * (i.qtd||1)), 0));
+    document.getElementById('valor-vendido').textContent = formatMoney(vendidos.reduce((s,i) => s + (i.preco * (i.qtd||1)), 0));
+  }
+
+  async function toggleVendido(id) {
+    const item = itens.find(i => i.id === id);
+    if (item) { item.vendido = !item.vendido; renderItems(); await salvarNuvem(); }
+  }
+
+  async function deletar(id) {
+    if (confirm('Remover este item?')) {
+      itens = itens.filter(i => i.id !== id);
+      renderItems();
+      await salvarNuvem();
+    }
+  }
+
+  function abrirModal() { document.getElementById('modal').classList.add('open'); }
+
+  function fecharModal() {
+    document.getElementById('modal').classList.remove('open');
+    document.getElementById('f-nome').value = '';
+    document.getElementById('f-preco').value = '';
+    document.getElementById('f-qtd').value = '1';
+    document.getElementById('f-obs').value = '';
+  }
+
+  async function salvarItem() {
+    const nome = document.getElementById('f-nome').value.trim();
+    const preco = parseFloat(document.getElementById('f-preco').value) || 0;
+    const cat = document.getElementById('f-cat').value;
+    const plat = document.getElementById('f-plat').value;
+    const qtd = parseInt(document.getElementById('f-qtd').value) || 1;
+    const obs = document.getElementById('f-obs').value.trim();
+
+    if (!nome) { alert('Digite o nome do item.'); return; }
+    if (preco <= 0) { alert('Digite um preço válido.'); return; }
+
+    itens.push({
+      id: Date.now().toString(),
+      nome, preco, cat, plat, qtd, obs,
+      vendido: false,
+      data: new Date().toLocaleDateString('pt-BR')
+    });
+
+    fecharModal();
+    renderItems();
+    await salvarNuvem();
+  }
+
+  document.getElementById('modal').addEventListener('click', function(e) {
+    if (e.target === this) fecharModal();
+  });
+
+  // Reload a cada 30 segundos para pegar atualizações do outro dispositivo
+  setInterval(carregarDados, 30000);
+
+  carregarDados();
+</script>
+</body>
+</html>
